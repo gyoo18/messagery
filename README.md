@@ -122,6 +122,9 @@ classDiagram
         +contenu:String
     }
 ```
+
+------------------------------------------------
+
 ```mermaid
 classDiagram
     MenuContextuel "1"*--"1" Titre
@@ -145,3 +148,188 @@ classDiagram
         +contact:String
     }
 ```
+
+### Conception Base de Donnée
+
+```mermaid
+classDiagram
+    note for Utilisateurs "date_connection est null si l'utilisateur n'est pas connecté"
+    Utilisateurs "*"-- ConversationsUtilisateurs
+    ConversationsUtilisateurs --"*" Conversations
+    Conversations "1"*--"*" Messages
+    Utilisateurs "1"-- MessagesNonLus
+    MessagesNonLus --"*" Messages
+    Utilisateurs "*"-- Invitations
+    Invitations --"*" Conversations
+
+    class Utilisateurs{
+        clée:int
+        nom:string
+        id:string
+        mot_de_passe:string
+        date_connection:date
+    }
+
+    class ConversationsUtilisateurs{
+        clée_utilisateur:int
+        clée_conversation:int
+    }
+
+    class Conversations{
+        clée:int
+    }
+
+    class Messages{
+        clée:int
+        clée_conversation:int
+        clée_utilisateur:int
+        date:date
+        message:string
+    }
+
+    class MessagesNonLus{
+        clée_message:int
+        clée_utilisateur:int
+    }
+
+    class Invitations{
+        clée_conversation:int
+        clée_utilisateur:int
+    }
+
+    class ServeursAutorisés{
+        url:string
+    }
+```
+
+### Noeuds HTTP
+
+- **Connection :** `GET`,`/connection`,`Authorisation: Basic <bases64(nom_d'utilisateur:mot_de_passe)>`
+  - **Réponse :**
+  
+    ```json
+    {
+        "accepté":[true,false],
+        // Si "accepté"=true : 
+        "jeton":"base64(nom_d'utilisateur:mot_de_passe:date_unix)"
+    }
+    ```
+
+- **Déconnection :** `PUT`, `/deconnection`, `Authorisation: Bearer <jeton>`
+
+- **Synchronisation de connection :** `GET`,`/synchronisation-connection`,`Authorisation: Bearer <jeton>`
+  - **Réponse :**
+
+    ```json
+    {
+        "contacts":[
+            {
+                "ID":"<identificateur>",
+                "nom":"<nom>"
+            }
+        ],
+        "conversations":[
+            {
+                "ID":"<int>",
+                "contacts":[/*IDs*/],
+                "messages":[
+                    // En ordre chronologique
+                    {
+                        "contact":"<identificateur>",
+                        "date":"<date>",
+                        "message":"<contenu>"
+                    }
+                ]
+            }
+        ],
+        "conversations-non-lues":[/*IDs*/]
+    }
+    ```
+
+- **Synchronisation :** `GET`,`/synchronisation`,`Authorisation: Bearer <jeton>`
+  
+  ```json
+  {
+    "conversations-lues":[/*IDs*/],
+    "nouvelles-conversations":[/*IDs*/],
+    "conversations-effacées":[/*IDs*/]
+  }
+  ```
+  
+  - **Réponse :**
+
+    ```json
+    {
+        "nouvelles-conversations":[
+            {
+                "ID":"<int>",
+                "contacts":[/*IDs*/],
+            }
+        ],
+        "nouveaux-messages":[
+            {
+                "conversation":"<id>",
+                "contact":"<id>",
+                "date":"<date>",
+                "message":"<contenu>"
+            }
+        ]
+    }
+    ```
+
+- **Nouvelle Conversation :** `PUT`, `/conversation`, `Authorisation: Bearer <jeton>`
+  - *Envoie une invitation aux contacts*
+  - **Réponse :**
+
+    ```json
+    {
+        "accepté":[true,false], // Rejeté si la conversation existe déjà avec les contacts
+        // Si "accepté"=true : 
+        "contacts":[/*IDs*/]
+    }
+    ```
+
+- **Invitation :** `PUT`, `/invitation`, `Authorisation: Bearer <jeton>`
+
+    ```json
+    {
+        "conversation":"<id>",
+        "contacts":[/*IDs*/]
+    }
+    ```
+
+- **Invitation (Inter-serveurs) :** `PUT`, `/invitation-relais`
+
+    ```json
+    {
+        "conversation":"<id>",
+        "contacts":[/*IDs*/],
+        "messages":[
+            {
+                "contact":"<id>",
+                "date":"<date>",
+                "message":"<contenu>"
+            }
+        ]
+    }
+    ```
+
+- **Nouveau message :** `PUT`, `/message`, `Authorisation: Bearer <jeton>`
+
+    ```json
+    {
+        "conversation":"<id>",
+        "message":"<contenu>"
+    }
+    ```
+
+- **Nouveau message (inter-serveur) :** `PUT`, `/message-relais`
+
+    ```json
+    {
+        "conversation":"<id>",
+        "contact":"<id>",
+        "date":"<date>",
+        "message":"<contenu>"
+    }
+    ```
