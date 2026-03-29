@@ -361,3 +361,20 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Libreoffice
+# Writer
+*.odt
+*.odt#
+# Impress
+*.odp
+*.odp#
+# Calc
+*.ods
+*.ods#
+# Draw
+*.odg
+*.odg#
+# Math
+*.odf
+*.odf#

@@ -122,9 +122,6 @@ classDiagram
         +contenu:String
     }
 ```
-
-----------------------------------------------
-
 ```mermaid
 classDiagram
     MenuContextuel "1"*--"1" Titre
