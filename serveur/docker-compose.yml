@@ -1,0 +1,44 @@
+services:
+  proxy:
+    image: nginx:latest
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./key.pem:/etc/nginx/ssl/key.pem
+      - ./cert.pem:/etc/nginx/ssl/cert.pem
+    ports:
+      - 8080:80
+      - 8443:443
+    networks:
+      - interne
+      - externe
+
+  serveur:
+    image: python:alpine
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./src:/src
+    command: ["python3","/src/main.py"]
+    ports:
+      - 8000:8000
+    networks:
+      - interne
+  
+  db:
+    image: mysql:latest
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - db_donnees:/var/lib/mysql
+    networks:
+      - interne
+
+networks:
+  interne:
+  externe:
+    driver: bridge
+
+volumes:
+  db_donnees:

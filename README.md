@@ -164,8 +164,8 @@ classDiagram
 
     class Utilisateurs{
         clée:int
-        nom:string
-        id:string
+        nom_affichage:string
+        nom_id:string
         mot_de_passe:string
         date_connection:date
     }
@@ -199,25 +199,27 @@ classDiagram
 
     class ServeursAutorisés{
         url:string
+        nom_id:string
+        mot_de_passe:string
     }
 ```
 
 ### Noeuds HTTP
 
-- **Connection :** `GET`,`/connection`,`Authorisation: Basic <bases64(nom_d'utilisateur:mot_de_passe)>`
+- **Connection :** `GET`,`/connection`,`Authorization: Basic <bases64(nom_id:mot_de_passe)>`
   - **Réponse :**
   
     ```json
     {
         "accepté":[true,false],
         // Si "accepté"=true : 
-        "jeton":"base64(nom_d'utilisateur:mot_de_passe:date_unix)"
+        "jeton":"base64(nom_id:mot_de_passe:date_unix)"
     }
     ```
 
-- **Déconnection :** `PUT`, `/deconnection`, `Authorisation: Bearer <jeton>`
+- **Déconnection :** `PUT`, `/deconnection`, `Authorization: Bearer <jeton>`
 
-- **Synchronisation de connection :** `GET`,`/synchronisation-connection`,`Authorisation: Bearer <jeton>`
+- **Synchronisation de connection :** `GET`,`/synchronisation-connection`,`Authorization: Bearer <jeton>`
   - **Réponse :**
 
     ```json
@@ -246,7 +248,7 @@ classDiagram
     }
     ```
 
-- **Synchronisation :** `GET`,`/synchronisation`,`Authorisation: Bearer <jeton>`
+- **Synchronisation :** `PUT`,`/synchronisation`,`Authorization: Bearer <jeton>`
   
   ```json
   {
@@ -277,32 +279,44 @@ classDiagram
     }
     ```
 
-- **Nouvelle Conversation :** `PUT`, `/conversation`, `Authorisation: Bearer <jeton>`
+- **Nouvelle Conversation :** `PUT`, `/conversation`, `Authorization: Bearer <jeton>`
   - *Envoie une invitation aux contacts*
+
+  ```json
+  {
+    "contacts":[/*IDs*/]
+  }
+  ```
+
   - **Réponse :**
 
     ```json
     {
         "accepté":[true,false], // Rejeté si la conversation existe déjà avec les contacts
-        // Si "accepté"=true : 
+        "conversation":"<id>", // Date de création UNIX
+    }
+    ```
+
+- **Invitation :** `PUT`, `/invitation`, `Authorization: Bearer <jeton>`
+
+    ```json
+    {
+        "conversation":"<id>", // Date de création UNIX de la conversation
         "contacts":[/*IDs*/]
     }
     ```
 
-- **Invitation :** `PUT`, `/invitation`, `Authorisation: Bearer <jeton>`
-
+    - **Réponse :**
+  
     ```json
-    {
-        "conversation":"<id>",
-        "contacts":[/*IDs*/]
-    }
+    {"accepté":[true,false]} // Refusé si la conversation existe déjà
     ```
 
 - **Invitation (Inter-serveurs) :** `PUT`, `/invitation-relais`
 
     ```json
     {
-        "conversation":"<id>",
+        "conversation":"<id>", // Date de création UNIX de la conversation
         "contacts":[/*IDs*/],
         "messages":[
             {
@@ -314,7 +328,13 @@ classDiagram
     }
     ```
 
-- **Nouveau message :** `PUT`, `/message`, `Authorisation: Bearer <jeton>`
+    - **Réponse :**
+  
+    ```json
+    {"accepté":[true,false]} // Refusé si la conversation existe déjà
+    ```
+
+- **Nouveau message :** `PUT`, `/message`, `Authorization: Bearer <jeton>`
 
     ```json
     {
