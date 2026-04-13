@@ -153,51 +153,66 @@ classDiagram
 
 ```mermaid
 classDiagram
+    Contacts "*"--o"1" ServeursAutorisés
+    note for Contacts "'serveur' est null si 'est_local' est faux et 'utilisateur_id' est null si 'est_local est vrai'"
+    Contacts "1"--"1" Utilisateurs
     note for Utilisateurs "date_connection est null si l'utilisateur n'est pas connecté"
-    Utilisateurs "*"-- ConversationsUtilisateurs
-    ConversationsUtilisateurs --"*" Conversations
+    Contacts "*"-- ConversationsContacts
+    ConversationsContacts --o"*" Conversations
     Conversations "1"*--"*" Messages
-    Utilisateurs "1"-- MessagesNonLus
+    Utilisateurs "1"*-- MessagesNonLus
     MessagesNonLus --"*" Messages
-    Utilisateurs "*"-- Invitations
+    Utilisateurs "*"*-- Invitations
     Invitations --"*" Conversations
+    Messages "1"o--"1" Contacts
+
+    class Contacts{
+        contact_id:int
+        nom_affichage:string
+        nom_id:string
+        serveur_id:int
+        est_local:bool
+        utilisateur_id:int
+    }
 
     class Utilisateurs{
-        clée:int
+        utilisateur_id:int
         nom_affichage:string
         nom_id:string
         mot_de_passe:string
-        date_connection:date
+        date_connection:datetime
+        date_dernière_interaction:datetime
     }
 
-    class ConversationsUtilisateurs{
-        clée_utilisateur:int
-        clée_conversation:int
+    class ConversationsContacts{
+        contact_id:int
+        conversation_id:int
     }
 
     class Conversations{
-        clée:int
+        conversation_id:int
     }
 
     class Messages{
-        clée:int
-        clée_conversation:int
-        clée_utilisateur:int
-        date:date
+        message_id:int
+        conversation_id:int
+        contacts_id:int
+        date:datetime
         message:string
     }
 
     class MessagesNonLus{
-        clée_message:int
-        clée_utilisateur:int
+        message_id:int
+        utilisateur_id:int
     }
 
     class Invitations{
-        clée_conversation:int
-        clée_utilisateur:int
+        conversation_id:int
+        utilisateur_id:int
     }
 
     class ServeursAutorisés{
+        serveur_id:int
         url:string
         nom_id:string
         mot_de_passe:string
@@ -217,7 +232,7 @@ classDiagram
     }
     ```
 
-- **Déconnection :** `PUT`, `/deconnection`, `Authorization: Bearer <jeton>`
+- **Déconnection :** `POST`, `/deconnection`, `Authorization: Bearer <jeton>`
 
 - **Synchronisation de connection :** `GET`,`/synchronisation-connection`,`Authorization: Bearer <jeton>`
   - **Réponse :**
@@ -248,12 +263,11 @@ classDiagram
     }
     ```
 
-- **Synchronisation :** `PUT`,`/synchronisation`,`Authorization: Bearer <jeton>`
+- **Synchronisation :** `POST`,`/synchronisation`,`Authorization: Bearer <jeton>`
   
   ```json
   {
     "conversations-lues":[/*IDs*/],
-    "nouvelles-conversations":[/*IDs*/],
     "conversations-effacées":[/*IDs*/]
   }
   ```
@@ -279,7 +293,7 @@ classDiagram
     }
     ```
 
-- **Nouvelle Conversation :** `PUT`, `/conversation`, `Authorization: Bearer <jeton>`
+- **Nouvelle Conversation :** `POST`, `/conversation`, `Authorization: Bearer <jeton>`
   - *Envoie une invitation aux contacts*
 
   ```json
@@ -297,7 +311,7 @@ classDiagram
     }
     ```
 
-- **Invitation :** `PUT`, `/invitation`, `Authorization: Bearer <jeton>`
+- **Invitation :** `POST`, `/invitation`, `Authorization: Bearer <jeton>`
 
     ```json
     {
@@ -307,12 +321,12 @@ classDiagram
     ```
 
     - **Réponse :**
-  
-    ```json
-    {"accepté":[true,false]} // Refusé si la conversation existe déjà
-    ```
 
-- **Invitation (Inter-serveurs) :** `PUT`, `/invitation-relais`
+        ```json
+        {"accepté":[true,false]} // Refusé si la conversation existe déjà
+        ```
+
+- **Invitation (Inter-serveurs) :** `POST`, `/invitation-relais`, `Authorization: Basic base64(nom:mdp:id_requête)`
 
     ```json
     {
@@ -330,11 +344,11 @@ classDiagram
 
     - **Réponse :**
   
-    ```json
-    {"accepté":[true,false]} // Refusé si la conversation existe déjà
-    ```
+        ```json
+        {"accepté":[true,false]} // Refusé si la conversation existe déjà
+        ```
 
-- **Nouveau message :** `PUT`, `/message`, `Authorization: Bearer <jeton>`
+- **Nouveau message :** `POST`, `/message`, `Authorization: Bearer <jeton>`
 
     ```json
     {
@@ -343,7 +357,7 @@ classDiagram
     }
     ```
 
-- **Nouveau message (inter-serveur) :** `PUT`, `/message-relais`
+- **Nouveau message (inter-serveur) :** `POST`, `/message-relais`, `Authorization: Basic base64(nom:mdp:id_requête)`
 
     ```json
     {
@@ -351,5 +365,15 @@ classDiagram
         "contact":"<id>",
         "date":"<date>",
         "message":"<contenu>"
+    }
+    ```
+
+- **Confirmation d'authentification serveur :** `GET`, `/authentification-serveur`, `Authorization: Basic <jeton envoyé>`
+  - *Envoyé après une communication inter-serveur où le serveur veut confirmer l'identité de la source.*
+  - **Réponse :**
+
+    ```json
+    {
+        "jeton":"<jeton envoyé>"
     }
     ```

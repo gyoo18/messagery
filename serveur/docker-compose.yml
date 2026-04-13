@@ -32,6 +32,7 @@ services:
     env_file: .env
     volumes:
       - db_donnees:/var/lib/mysql
+      - ./init_sql:/docker-entrypoint-initdb.d
     networks:
       - interne
 
