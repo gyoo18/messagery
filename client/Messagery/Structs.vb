@@ -17,8 +17,8 @@ Public Class Conversation
     Public est_lue As Boolean
 End Class
 
-Public Class État
+Public Module État
     Public contacts As Dictionary(Of String, Contact)
     Public conversations As Dictionary(Of Integer, Conversation)
     Public session As String
-End Class
+End Module

@@ -1,0 +1,5 @@
+﻿Public Class FrmMessagerie
+    Private Sub FrmMessagerie_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+
+    End Sub
+End Class

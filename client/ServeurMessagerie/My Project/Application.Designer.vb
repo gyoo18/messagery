@@ -28,12 +28,11 @@ Namespace My
             Me.EnableVisualStyles = true
             Me.SaveMySettingsOnExit = true
             Me.ShutDownStyle = Global.Microsoft.VisualBasic.ApplicationServices.ShutdownMode.AfterMainFormCloses
-            Me.HighDpiMode = HighDpiMode.DpiUnaware
         End Sub
         
         <Global.System.Diagnostics.DebuggerStepThroughAttribute()>  _
         Protected Overrides Sub OnCreateMainForm()
-            Me.MainForm = Global.Messagery.FrmConnection
+            Me.MainForm = Global.ServeurMessagerie.FrmServeur
         End Sub
         
         <Global.System.Diagnostics.DebuggerStepThroughAttribute()>  _

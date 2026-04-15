@@ -1,0 +1,19 @@
+USE MessagerieDB;
+GO
+
+CREATE TABLE Utilisateurs (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    NomUtilisateur NVARCHAR(50) UNIQUE NOT NULL,
+    MotDePasse NVARCHAR(100) NOT NULL,
+    Statut NVARCHAR(20) DEFAULT 'Hors ligne'
+);
+GO
+
+CREATE TABLE Messages (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    Expediteur NVARCHAR(50) NOT NULL,
+    Destinataire NVARCHAR(50) NOT NULL,
+    Contenu NVARCHAR(500) NOT NULL,
+    DateEnvoi DATETIME DEFAULT GETDATE()
+);
+GO

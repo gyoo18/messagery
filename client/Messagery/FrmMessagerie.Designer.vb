@@ -1,5 +1,5 @@
 ﻿<Global.Microsoft.VisualBasic.CompilerServices.DesignerGenerated()>
-Partial Class PrincipalFrm
+Partial Class FrmMessagerie
     Inherits System.Windows.Forms.Form
 
     'Form overrides dispose to clean up the component list.
@@ -23,8 +23,9 @@ Partial Class PrincipalFrm
     <System.Diagnostics.DebuggerStepThrough()>
     Private Sub InitializeComponent()
         GroupBox1 = New GroupBox()
+        BtnDéconnecter = New Button()
         BoîtesConversationsConteneur = New FlowLayoutPanel()
-        Button1 = New Button()
+        BtnAjouteConversation = New Button()
         Panel1 = New Panel()
         Panel3 = New Panel()
         BtnEnvoyer = New Button()
@@ -45,14 +46,26 @@ Partial Class PrincipalFrm
         ' GroupBox1
         ' 
         GroupBox1.BackColor = SystemColors.Control
+        GroupBox1.Controls.Add(BtnDéconnecter)
         GroupBox1.Controls.Add(BoîtesConversationsConteneur)
-        GroupBox1.Controls.Add(Button1)
+        GroupBox1.Controls.Add(BtnAjouteConversation)
         GroupBox1.Location = New Point(6, 2)
         GroupBox1.Name = "GroupBox1"
         GroupBox1.Size = New Size(248, 624)
         GroupBox1.TabIndex = 0
         GroupBox1.TabStop = False
         GroupBox1.Text = "Discussions"
+        ' 
+        ' BtnDéconnecter
+        ' 
+        BtnDéconnecter.BackColor = Color.IndianRed
+        BtnDéconnecter.Font = New Font("Arial Black", 11.25F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        BtnDéconnecter.Location = New Point(6, 29)
+        BtnDéconnecter.Name = "BtnDéconnecter"
+        BtnDéconnecter.Size = New Size(136, 29)
+        BtnDéconnecter.TabIndex = 2
+        BtnDéconnecter.Text = "Déconnection"
+        BtnDéconnecter.UseVisualStyleBackColor = False
         ' 
         ' BoîtesConversationsConteneur
         ' 
@@ -63,17 +76,18 @@ Partial Class PrincipalFrm
         BoîtesConversationsConteneur.Name = "BoîtesConversationsConteneur"
         BoîtesConversationsConteneur.Size = New Size(236, 539)
         BoîtesConversationsConteneur.TabIndex = 1
+        BoîtesConversationsConteneur.WrapContents = False
         ' 
-        ' Button1
+        ' BtnAjouteConversation
         ' 
-        Button1.BackColor = SystemColors.ControlLight
-        Button1.Font = New Font("Arial Black", 15.75F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        Button1.Location = New Point(200, 22)
-        Button1.Name = "Button1"
-        Button1.Size = New Size(36, 36)
-        Button1.TabIndex = 0
-        Button1.Text = "+"
-        Button1.UseVisualStyleBackColor = False
+        BtnAjouteConversation.BackColor = SystemColors.ControlLight
+        BtnAjouteConversation.Font = New Font("Arial Black", 15.75F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        BtnAjouteConversation.Location = New Point(200, 22)
+        BtnAjouteConversation.Name = "BtnAjouteConversation"
+        BtnAjouteConversation.Size = New Size(36, 36)
+        BtnAjouteConversation.TabIndex = 0
+        BtnAjouteConversation.Text = "+"
+        BtnAjouteConversation.UseVisualStyleBackColor = False
         ' 
         ' Panel1
         ' 
@@ -163,6 +177,10 @@ Partial Class PrincipalFrm
         MessagesConteneur.Name = "MessagesConteneur"
         MessagesConteneur.Size = New Size(466, 502)
         MessagesConteneur.TabIndex = 1
+        MessagesConteneur.WrapContents = False
+        ' 
+        ' BackgroundWorker1
+        ' 
         ' 
         ' PrincipalFrm
         ' 
@@ -187,7 +205,7 @@ Partial Class PrincipalFrm
 
     Friend WithEvents GroupBox1 As GroupBox
     Friend WithEvents BoîtesConversationsConteneur As FlowLayoutPanel
-    Friend WithEvents Button1 As Button
+    Friend WithEvents BtnAjouteConversation As Button
     Friend WithEvents Panel1 As Panel
     Friend WithEvents EnTêteIdentificateurs As Label
     Friend WithEvents EnTêteNomsAffichage As Label
@@ -198,5 +216,6 @@ Partial Class PrincipalFrm
     Friend WithEvents MessageEntrée As TextBox
     Friend WithEvents MessagesConteneur As FlowLayoutPanel
     Friend WithEvents BackgroundWorker1 As System.ComponentModel.BackgroundWorker
+    Friend WithEvents BtnDéconnecter As Button
 
 End Class

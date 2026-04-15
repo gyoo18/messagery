@@ -4,10 +4,33 @@ Imports System.Net.Http
 Imports System.Text
 Imports System.Text.Json
 
-Public Class Serveur
+Public Class Communication
     Private clientHttp As HttpClient
     Private authorizationHeader As Headers.AuthenticationHeaderValue
     Private jeton As String
+
+    Public Async Function Inscrire(nom_id As String, serveur As String, nom_affichage As String, mot_de_passe As String) As Task(Of Boolean)
+        Me.clientHttp = New HttpClient()
+        Me.clientHttp.BaseAddress = New Uri("http://" & serveur)
+
+        Try
+            Dim requête = New HttpRequestMessage(HttpMethod.Post, "inscription")
+            requête.Content = New StringContent(
+                "{""nom_id"":""" & nom_id & """,""nom_affichage"":""" & nom_affichage & """,""mot_de_passe"":""" & mot_de_passe & """}")
+
+            Dim réponse = Await Me.clientHttp.SendAsync(requête)
+            If Not réponse.IsSuccessStatusCode Then
+                MsgBox("Une erreur est survenue dans la communication avec le serveur" & vbCrLf & CStr(réponse.StatusCode) & ":" & réponse.ReasonPhrase)
+                Return False
+            End If
+        Catch ex As Exception
+            MsgBox("Une erreur est survenue dans la communication avec le serveur.")
+            Console.WriteLine(ex.Message)
+            Return False
+        End Try
+
+        Return True
+    End Function
 
     Public Async Function Connecter(nom_id As String, serveur As String, mot_de_passe As String) As Task(Of String)
         Me.clientHttp = New HttpClient()
@@ -190,7 +213,7 @@ Public Class Serveur
             Dim requête = New HttpRequestMessage(HttpMethod.Post, "synchronisation")
             requête.Headers.Authorization = Me.authorizationHeader
             ' TODO Envoyer les bonnes informations
-            requête.Content = New StringContent("{""conversations-lues"":[],""conversation-effacées"":[]")
+            requête.Content = New StringContent("{""conversations-lues"":[],""conversations-effacées"":[]}")
             Dim réponse = Await Me.clientHttp.SendAsync(requête)
 
             If Not réponse.IsSuccessStatusCode Then
@@ -205,7 +228,7 @@ Public Class Serveur
                 MsgBox("La réponse du serveur est mal formée")
                 Return Nothing
             End If
-            Dim conversations_str As Dictionary(Of String, Object)() = JsonSerializer.Deserialize(Of Dictionary(Of String, Object)())(json("conversations"))
+            Dim conversations_str As Dictionary(Of String, Object)() = JsonSerializer.Deserialize(Of Dictionary(Of String, Object)())(json("nouvelles-conversations"))
 
             Dim conversations = New Dictionary(Of Integer, Conversation)(conversations_str.Length)
             Dim contacts_conversations_str As String()
@@ -225,13 +248,13 @@ Public Class Serveur
                 contacts_conversations = New List(Of Contact)(contacts_conversations_str.Length)
                 For j = 0 To contacts_conversations_str.Length - 1
                     If Not Utilitaires.est_identifiant_valide(contacts_conversations_str(j)) Or
-                        Not PrincipalFrm.état.contacts.ContainsKey(contacts_conversations_str(j)) Then
+                        Not État.contacts.ContainsKey(contacts_conversations_str(j)) Then
 
                         Console.WriteLine("L'un des contacts d'une des conversations est invalide")
                         Continue For
                     End If
 
-                    contacts_conversations.Add(PrincipalFrm.état.contacts(contacts_conversations_str(j)))
+                    contacts_conversations.Add(État.contacts(contacts_conversations_str(j)))
                 Next j
 
                 ' Extraction des messages
@@ -242,14 +265,14 @@ Public Class Serveur
                         Not messages_str(j).ContainsKey("date") Or
                         Not messages_str(j).ContainsKey("message") Or
                         Not Utilitaires.est_identifiant_valide(JsonSerializer.Deserialize(Of String)(messages_str(j)("contact"))) Or
-                        Not PrincipalFrm.état.contacts.ContainsKey(JsonSerializer.Deserialize(Of String)(messages_str(j)("contact"))) Then
+                        Not État.contacts.ContainsKey(JsonSerializer.Deserialize(Of String)(messages_str(j)("contact"))) Then
 
                         Console.WriteLine("L'un des messages d'une des conversations est invalide")
                         Continue For
                     End If
 
                     messages.Add(New Message With {
-                        .contact = PrincipalFrm.état.contacts(JsonSerializer.Deserialize(Of String)(messages_str(j)("contact"))),
+                        .contact = État.contacts(JsonSerializer.Deserialize(Of String)(messages_str(j)("contact"))),
                         .date_publication = JsonSerializer.Deserialize(Of DateTime)(messages_str(j)("date")),
                         .contenu = JsonSerializer.Deserialize(Of String)(messages_str(j)("message"))
                     })
@@ -278,7 +301,7 @@ Public Class Serveur
                         Not nouveaux_messages_str(j).ContainsKey("message") Or
                         Not nouveaux_messages_str(j).ContainsKey("conversation") Or
                         Not Utilitaires.est_identifiant_valide(JsonSerializer.Deserialize(Of String)(nouveaux_messages_str(j)("contact"))) Or
-                        Not PrincipalFrm.état.contacts.ContainsKey(JsonSerializer.Deserialize(Of String)(nouveaux_messages_str(j)("contact"))) Then
+                        Not État.contacts.ContainsKey(JsonSerializer.Deserialize(Of String)(nouveaux_messages_str(j)("contact"))) Then
 
                     Console.WriteLine("L'un des messages d'une des conversations est invalide")
                     Continue For
@@ -288,8 +311,8 @@ Public Class Serveur
                 New Tuple(Of Integer, Message)(
                     JsonSerializer.Deserialize(Of Integer)(nouveaux_messages_str(j)("conversation")),
                     New Message With {
-                        .contact = PrincipalFrm.état.contacts(JsonSerializer.Deserialize(Of String)(nouveaux_messages_str(j)("contact"))),
-                        .date_publication = JsonSerializer.Deserialize(Of DateTime)(nouveaux_messages_str(j)("date")),
+                        .contact = État.contacts(JsonSerializer.Deserialize(Of String)(nouveaux_messages_str(j)("contact"))),
+                        .date_publication = DateTime.Parse(JsonSerializer.Deserialize(Of String)(nouveaux_messages_str(j)("date"))),
                         .contenu = JsonSerializer.Deserialize(Of String)(nouveaux_messages_str(j)("message"))
                     }))
             Next j
@@ -323,6 +346,10 @@ Public Class Serveur
     End Sub
 
     Public Async Sub deconnecter()
+        If État.session Is Nothing Then
+            Exit Sub
+        End If
+
         Try
             Dim requête = New HttpRequestMessage(HttpMethod.Post, "/deconnection")
             requête.Headers.Authorization = Me.authorizationHeader
