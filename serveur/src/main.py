@@ -59,6 +59,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
         
         réponse : dict = None
         match(self.path):
+            case "/inscription" :        réponse = self.inscription()
             case "/deconnection" :       réponse = self.déconnection()
             case "/conversation" :       réponse = self.créer_conversation()
             case "/invitation" :         réponse = self.envoyer_invitation()
@@ -112,6 +113,53 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             return None
         
         return {"jeton":autorisation}
+
+    def inscription(self) -> dict:
+        infos : dict
+        try:
+            taille = self.headers.get("Content-Length")
+            if not taille or not taille.isdigit():
+                self.send_error(422,"L'en-tête 'Content-Length' doit être assigné et être un entier.")
+                return
+
+            infos = json.loads(self.rfile.read(int(taille)))
+        except Exception as e:
+            print("Données mal formées")
+            self.send_error(400,"Les données reçues ne peuvent être interprétées comme un json.")
+            return None
+
+        if ( ("nom_id" not in infos) or 
+            ("nom_affichage" not in infos) or
+            ("mot_de_passe" not in infos)):
+            print("JSON mal formé")
+            self.send_error(422,"Les données reçues ne sont pas bien formattées.")
+            return None
+        
+        infos["nom_id"] = infos["nom_id"].lower()
+        # Valider le nom d'utilisateur
+        if not self.est_id_valide(infos["nom_id"]+"@"+self.headers.get("Host")):
+            self.send_error(422,"L'identifiant est invalide")
+            return None
+
+        # Vérifier si qqun existe déjà
+        self.sql.execute("SELECT 1 FROM Utilisateurs WHERE nom_id=%s",(infos["nom_id"],))
+        if len(self.sql.fetchall()) != 0:
+            self.send_error(400,"Un utilisateur possède déjà cet identifiant.")
+            return None
+
+        self.sql.execute("SELECT MAX(utilisateur_id) FROM Utilisateurs")
+        uid = self.sql.fetchall()[0][0]
+        if uid is None:
+            uid = 0
+        uid += 1
+        
+        self.sql.execute(
+            "INSERT INTO Utilisateurs (utilisateur_id, nom_affichage, nom_id, mot_de_passe)" +
+            "VALUES (%s,%s,%s,%s)",
+            (uid,infos["nom_affichage"].lower(),infos["nom_id"],infos["mot_de_passe"]))
+        self.sql_connection.commit()
+
+        return {"accepté":True}
 
     def connecter(self) -> dict:
         """
@@ -312,56 +360,58 @@ class ServeurHTTP(BaseHTTPRequestHandler):
         
         # Modifier la base de donnée en fonction des données reçues
         # Conversations lues
-        params = modifications["conversations-lues"].copy()
-        params.append(self.session[0])
-        self.sql.execute(
-            "DELETE mnl FROM MessagesNonLus AS mnl "+
-            "INNER JOIN Messages AS m ON m.message_id=mnl.message_id "+
-            "INNER JOIN Utilisateurs AS u ON mnl.utilisateur_id=u.utilisateur_id "+
-            ("WHERE m.conversation_id IN (%s) " % ','.join(['%s']*len(modifications["conversations-lues"])))+ 
-            "AND u.nom_id=%s",
-            tuple(params)
-        )
+        if len(modifications["conversations-lues"]) != 0:
+            params = modifications["conversations-lues"].copy()
+            params.append(self.session[0])
+            self.sql.execute(
+                "DELETE mnl FROM MessagesNonLus AS mnl "+
+                "INNER JOIN Messages AS m ON m.message_id=mnl.message_id "+
+                "INNER JOIN Utilisateurs AS u ON mnl.utilisateur_id=u.utilisateur_id "+
+                ("WHERE m.conversation_id IN (%s) " % ','.join(['%s']*len(modifications["conversations-lues"])))+ 
+                "AND u.nom_id=%s",
+                tuple(params)
+            )
         
         # Conversations effacées
         # BUG TODO #2 Cette information n'est pas communiquée aux autres serveurs
-        for cid in modifications["conversations-effacées"]:
-            # Effacer le lien entre l'utilisateur et la conversation
-            self.sql.execute(
-                "DELETE cc FROM ConversationsContacts AS cc "+
-                "INNER JOIN Utilisateurs AS u ON cc.utilisateur_id=u.utilisateur_id "+
-                "WHERE u.nom_id=%s",
-                (self.session[0],)
-            )
-            # Effacer les conversations non lues
-            self.sql.execute(
-                "DELETE cnl FROM ConversationsNonLues AS cnl "+
-                "INNER JOIN Utilisateurs AS u ON cnl.utilisateur_id=u.utilisateur_id "+
-                "WHERE cnl.conversation_id=%s AND u.nom_id=%s",
-                (cid,self.session[0])
-            )
-            # Effacer les invitations
-            self.sql.execute(
-                "DELETE i FROM Invitations AS i "+
-                "INNER JOIN Utilisateurs AS u ON i.utilisateur_id=u.utilisateur_id "+
-                "WHERE i.conversation_id=%s AND u.utilisateur_id=%s",
-                (cid[0],self.session[0])
-            )
-
-            # Effacer la conversation s'il ne reste plus personne dedans
-            self.sql.execute(
-                "SELECT c.conversation_id "+
-                "FROM Conversations AS c "+
-                "LEFT JOIN ConversationsContacts AS cc ON c.conversation_id=cc.conversation_id "+
-                "WHERE cc.conversation_id IS NULL"
-            )
-            conversations_orphelines : list[tuple[int]] = self.sql.fetchall()
-            for cid in conversations_orphelines:
+        if len(modifications["conversations-effacées"]) != 0:
+            for cid in modifications["conversations-effacées"]:
+                # Effacer le lien entre l'utilisateur et la conversation
                 self.sql.execute(
-                    "DELETE c, m FROM Conversations AS c "+
-                    "INNER JOIN Messages AS m ON c.conversation_id=m.conversation_id "+
-                    "WHERE c.conversation_id=%s",
-                    (cid,)
+                    "DELETE cc FROM ConversationsContacts AS cc "+
+                    "INNER JOIN Utilisateurs AS u ON cc.utilisateur_id=u.utilisateur_id "+
+                    "WHERE u.nom_id=%s",
+                    (self.session[0],)
+                )
+                # Effacer les conversations non lues
+                self.sql.execute(
+                    "DELETE cnl FROM ConversationsNonLues AS cnl "+
+                    "INNER JOIN Utilisateurs AS u ON cnl.utilisateur_id=u.utilisateur_id "+
+                    "WHERE cnl.conversation_id=%s AND u.nom_id=%s",
+                    (cid,self.session[0])
+                )
+                # Effacer les invitations
+                self.sql.execute(
+                    "DELETE i FROM Invitations AS i "+
+                    "INNER JOIN Utilisateurs AS u ON i.utilisateur_id=u.utilisateur_id "+
+                    "WHERE i.conversation_id=%s AND u.utilisateur_id=%s",
+                    (cid[0],self.session[0])
+                )
+
+                # Effacer la conversation s'il ne reste plus personne dedans
+                self.sql.execute(
+                    "SELECT c.conversation_id "+
+                    "FROM Conversations AS c "+
+                    "LEFT JOIN ConversationsContacts AS cc ON c.conversation_id=cc.conversation_id "+
+                    "WHERE cc.conversation_id IS NULL"
+                )
+                conversations_orphelines : list[tuple[int]] = self.sql.fetchall()
+                for cid in conversations_orphelines:
+                    self.sql.execute(
+                        "DELETE c, m FROM Conversations AS c "+
+                        "INNER JOIN Messages AS m ON c.conversation_id=m.conversation_id "+
+                        "WHERE c.conversation_id=%s",
+                        (cid,)
                 )
 
         # Obtenir les nouvelles conversations
@@ -401,7 +451,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             messages_non_lus.append({
                 "conversation":m[0],
                 "contact":m[1]+"@"+(m[2] if not m[3] else self.headers.get("Host")),
-                "date":m[4].strftime("%Y-%m%dT%H:%M%SZ"),
+                "date":m[4].strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "message":m[5]
             })
         # Effacer les messages non lus
@@ -1013,40 +1063,40 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             print("Authorisation mal formée")
             return False
 
-        if mots[0] == "Bearer":
-            if not mots[1] in État.jetons_actifs:
-                print("Session échue")
-                return False
+        if mots[0] != "Bearer":
+            print("La méthode d'authentification n'est pas reconnue")
+            return False
 
-            identifiants : list[str] = None
-            try:
-                identifiants = b64decode(mots[1].encode()).decode("utf8").split(":")
-                if len(identifiants) != 3 or not identifiants[2].isdigit():
-                    print("Identifiants mal formée")
-                    return False
-                identifiants[2] = int(identifiants[2])
-            except Exception:
+        if mots[1] not in État.jetons_actifs:
+            print("Session échue")
+            return False
+
+        identifiants : list[str] = None
+        try:
+            identifiants = b64decode(mots[1].encode()).decode("utf8").split(":")
+            if len(identifiants) != 3 or not identifiants[2].isdigit():
                 print("Identifiants mal formée")
                 return False
-            
-            # Interroger la base de donnée sur les identifiants
-            self.sql.execute(
-                "SELECT 1 "+
-                "FROM Utilisateurs "+
-                "WHERE nom_id=%s AND mot_de_passe=%s AND date_connection<NOW() AND DATE_ADD(date_dernière_interaction, INTERVAL 3 HOUR) > NOW()",
-                (identifiants[0],identifiants[1])
-            )
-            if len(self.sql.fetchall()) == 0:
-                print("Identifiants invalides.")
-                État.jetons_actifs.remove(mots[1])
-                return False
-
-            self.session = (identifiants[0],identifiants[1],identifiants[2])
-            self.session_jeton = mots[1]
-            return True
+            identifiants[2] = int(identifiants[2])
+        except Exception:
+            print("Identifiants mal formée")
+            return False
         
-        print("La méthode d'authentification n'est pas reconnue")
-        return False
+        # Interroger la base de donnée sur les identifiants
+        self.sql.execute(
+            "SELECT 1 "+
+            "FROM Utilisateurs "+
+            "WHERE nom_id=%s AND mot_de_passe=%s AND date_connection<=DATE_ADD(NOW(), INTERVAL 3 SECOND) AND DATE_ADD(date_dernière_interaction, INTERVAL 3 HOUR) > NOW()",
+            (identifiants[0],identifiants[1])
+        )
+        if len(self.sql.fetchall()) == 0:
+            print("Identifiants invalides.")
+            État.jetons_actifs.remove(mots[1])
+            return False
+
+        self.session = (identifiants[0],identifiants[1],identifiants[2])
+        self.session_jeton = mots[1]
+        return True
 
     def est_serveur_autorisé(self) -> bool:
         # Vérifier si la communication vient d'un serveur autorisé.
