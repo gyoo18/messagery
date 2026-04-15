@@ -221,6 +221,24 @@ classDiagram
 
 ### Noeuds HTTP
 
+- **Inscription :** `POST`, `/inscription`
+
+  ```json
+  {
+    "nom_id":"<nom_id>",
+    "nom_affichage":"<nom_affichage>",
+    "mot_de_passe":"<mot_de_passe>"
+  }
+  ```
+  
+  - **Réponse :**
+
+    ```json
+    {
+        "accepté":[true,false]
+    }
+    ```
+
 - **Connection :** `GET`,`/connection`,`Authorization: Basic <bases64(nom_id:mot_de_passe)>`
   - **Réponse :**
   
