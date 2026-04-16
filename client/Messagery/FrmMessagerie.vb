@@ -153,8 +153,32 @@ Public Class FrmMessagerie
         Me.Hide()
     End Sub
 
-    Private Sub BtnAjouterConversation_Click(sender As Object, e As EventArgs) Handles BtnAjouteConversation.Click
-        Dim frmCréeerConversation = New FrmCréerConversation(Me.communication)
-        frmCréeerConversation.Show()
+    Private Async Sub BtnAjouterConversation_Click(sender As Object, e As EventArgs) Handles BtnAjouteConversation.Click
+        Dim frmCréeerConversation As New FrmCréerConversation(Me.communication)
+
+        frmCréeerConversation.ShowDialog()
+
+        Dim sync = Await Me.communication.synchronisation()
+
+        If sync Is Nothing Then
+            MessageBox.Show("Impossible de mettre à jour les conversations.")
+            Return
+        End If
+
+        For Each c In sync.nouvelles_conversations
+            If Not État.conversations.ContainsKey(c.Key) Then
+                État.conversations(c.Key) = c.Value
+
+                Me.boîtesConversations(c.Key) = New BoîteConversation(c.Value)
+                Me.boîtesConversations(c.Key).enregistrer_ouvrir_conversation_callback(
+                New Action(Of Conversation)(
+                    Sub(conv As Conversation)
+                        Me.afficherConversation(conv)
+                    End Sub
+                ))
+
+                Me.BoîtesConversationsConteneur.Controls.Add(Me.boîtesConversations(c.Key).Conteneur)
+            End If
+        Next
     End Sub
 End Class
