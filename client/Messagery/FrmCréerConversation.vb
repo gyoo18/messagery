@@ -1,5 +1,6 @@
 ﻿Public Class FrmCréerConversation
     Private communication As Communication
+    Private conversationCréeeCallback As Action(Of Conversation)
 
     ' Dictionnaire des Controls des contacts à choisir,[<nom_id@serveur>:BoîteChoixContact]
     Private choixContacts As Dictionary(Of String, BoîteChoixContact) = New Dictionary(Of String, BoîteChoixContact)
@@ -10,12 +11,13 @@
     ' Lorsqu'un contact est retiré de la liste des choisis, il faut le retirer, mais pour éviter de toujours les recréer, on les mets ici.
     Private contactsChoisisRetirés As Dictionary(Of String, BoîteContactChoisis) = New Dictionary(Of String, BoîteContactChoisis)
 
-    Public Sub New(ByRef com As Communication)
+    Public Sub New(ByRef com As Communication, conversationCréeeCallback As Action(Of Conversation))
         ' Cet appel est requis par le concepteur.
         InitializeComponent()
 
         ' Ajoutez une initialisation quelconque après l'appel InitializeComponent().
         Me.communication = com
+        Me.conversationCréeeCallback = conversationCréeeCallback
     End Sub
 
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
@@ -72,17 +74,33 @@
             End If
 
             Dim idsContacts As New List(Of String)
+            Dim contacts As List(Of Contact) = New List(Of Contact)(Me.contactsChoisis.Count)
 
             For Each id As String In Me.contactsChoisis.Keys
+                If id = État.session Then
+                    Continue For
+                End If
+
                 idsContacts.Add(id)
+                contacts.Add(État.contacts(id))
             Next
 
-            Dim ok As Boolean = Await Me.communication.creer_conversation(idsContacts)
+            Dim id_conv As Boolean = Await Me.communication.creer_conversation(idsContacts)
 
-            If ok Then
-                MessageBox.Show("Conversation créée avec succès.")
-                Me.Close()
+            If id_conv < 0 Then
+                Exit Sub
             End If
+            Dim conv = New Conversation With {
+                .ID = id_conv,
+                .contacts = contacts,
+                .est_lue = True,
+                .messages = New List(Of Message)
+            }
+            État.conversations(id_conv) = conv
+            Me.conversationCréeeCallback(conv)
+
+            MessageBox.Show("Conversation créée avec succès.")
+            Me.Close()
 
         Catch ex As Exception
             MessageBox.Show("Erreur : " & ex.Message)

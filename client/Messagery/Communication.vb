@@ -361,7 +361,7 @@ Public Class Communication
             MsgBox("Une erreur est survenue lors de l'envoie au serveur.")
         End Try
     End Sub
-    Public Async Function creer_conversation(contactIds As List(Of String)) As Task(Of Boolean)
+    Public Async Function creer_conversation(contactIds As List(Of String)) As Task(Of Integer)
         Try
             Dim requête = New HttpRequestMessage(HttpMethod.Post, "/conversation")
             requête.Headers.Authorization = Me.authorizationHeader
@@ -376,15 +376,27 @@ Public Class Communication
             Dim resp = Await Me.clientHttp.SendAsync(requête)
 
             If Not resp.IsSuccessStatusCode Then
-                MsgBox("Erreur lors de la création de la conversation")
-                Return False
+                MsgBox("Erreur lors de la création de la conversation : " & vbCrLf & CStr(resp.StatusCode) & " : " & resp.ReasonPhrase)
+                Return -1
             End If
 
-            Return True
+            Dim json = JsonSerializer.Deserialize(Of Dictionary(Of String, Object))(Await resp.Content.ReadAsStringAsync())
+
+            If Not json.ContainsKey("accepté") Or Not json.ContainsKey("conversation") Then
+                MsgBox("Erreur lors de la lecture de la résponse du serveur.")
+                Return -1
+            End If
+
+            If Not JsonSerializer.Deserialize(Of Boolean)(json("accepté")) Then
+                MsgBox("Le serveur a rejeté la création de la conversation.")
+                Return -1
+            End If
+
+            Return JsonSerializer.Deserialize(Of Integer)(json("conversation"))
 
         Catch ex As Exception
             MsgBox("Erreur lors de la création de la conversation.")
-            Return False
+            Return -1
         End Try
     End Function
 End Class

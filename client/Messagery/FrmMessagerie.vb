@@ -131,6 +131,11 @@ Public Class FrmMessagerie
 
             Dim sync = Await Me.communication.synchronisation()
 
+            If sync Is Nothing Then
+                Threading.Thread.Sleep(5000)
+                Continue Do
+            End If
+
             For Each c In sync.nouvelles_conversations
                 État.conversations(c.Key) = c.Value
                 Me.boîtesConversations(c.Key) = New BoîteConversation(c.Value)
@@ -158,7 +163,18 @@ Public Class FrmMessagerie
     End Sub
 
     Private Async Sub BtnAjouterConversation_Click(sender As Object, e As EventArgs) Handles BtnAjouteConversation.Click
-        Dim frmCréeerConversation As New FrmCréerConversation(Me.communication)
+        Dim frmCréeerConversation As New FrmCréerConversation(Me.communication, New Action(Of Conversation)(
+            Sub(conv As Conversation)
+                Me.boîtesConversations(conv.ID) = New BoîteConversation(conv)
+                Me.boîtesConversations(conv.ID).enregistrer_ouvrir_conversation_callback(
+                New Action(Of Conversation)(
+                    Sub(c As Conversation)
+                        Me.afficherConversation(c)
+                    End Sub
+                ))
+                Me.BoîtesConversationsConteneur.Controls.Add(Me.boîtesConversations(conv.ID).Conteneur)
+            End Sub
+        ))
 
         frmCréeerConversation.ShowDialog()
 
