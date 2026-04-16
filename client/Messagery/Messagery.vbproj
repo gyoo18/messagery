@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows7.0</TargetFramework>
     <StartupObject>Messagery.My.MyApplication</StartupObject>
     <UseWindowsForms>true</UseWindowsForms>
     <MyType>WindowsForms</MyType>
@@ -19,9 +19,7 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Update="FrmConnection.vb" />
-    <Compile Update="FrmInscription.vb">
-      <SubType>Form</SubType>
-    </Compile>
+    <Compile Update="FrmInscription.vb" />
     <Compile Update="My Project\Application.Designer.vb">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>

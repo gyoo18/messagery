@@ -208,7 +208,7 @@ Partial Class FrmCréerConversation
         BtnCréer.Text = "Créer >"
         BtnCréer.UseVisualStyleBackColor = True
         ' 
-        ' Form1
+        ' FrmCréerConversation
         ' 
         AutoScaleDimensions = New SizeF(7F, 15F)
         AutoScaleMode = AutoScaleMode.Font
@@ -220,7 +220,7 @@ Partial Class FrmCréerConversation
         Controls.Add(conteneurContacts)
         Controls.Add(conteneurContactsChoisis)
         Controls.Add(Label1)
-        Name = "Form1"
+        Name = "FrmCréerConversation"
         Text = "Form1"
         conteneurContactsChoisis.ResumeLayout(False)
         conteneurContactsChoisis.PerformLayout()
