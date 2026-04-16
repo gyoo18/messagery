@@ -378,3 +378,12 @@ FodyWeavers.xsd
 # Math
 *.odf
 *.odf#
+
+# Serveur
+.env
+*.crt
+*.key
+*.pem
+.venv
+
+Rapport.*
