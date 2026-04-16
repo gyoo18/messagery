@@ -3,6 +3,7 @@ Imports System.Diagnostics.Tracing
 Imports System.Net.Http
 Imports System.Text
 Imports System.Text.Json
+Imports System.Linq
 
 Public Class Communication
     Private clientHttp As HttpClient
@@ -360,4 +361,30 @@ Public Class Communication
             MsgBox("Une erreur est survenue lors de l'envoie au serveur.")
         End Try
     End Sub
+    Public Async Function creer_conversation(contactIds As List(Of String)) As Task(Of Boolean)
+        Try
+            Dim requête = New HttpRequestMessage(HttpMethod.Post, "/conversation")
+            requête.Headers.Authorization = Me.authorizationHeader
+
+            Dim idsJson As String = String.Join(",", contactIds.Select(Function(id) """" & id & """"))
+            requête.Content = New StringContent(
+                "{""contacts"":[" & idsJson & "]}",
+                Encoding.UTF8,
+                "application/json"
+            )
+
+            Dim resp = Await Me.clientHttp.SendAsync(requête)
+
+            If Not resp.IsSuccessStatusCode Then
+                MsgBox("Erreur lors de la création de la conversation")
+                Return False
+            End If
+
+            Return True
+
+        Catch ex As Exception
+            MsgBox("Erreur lors de la création de la conversation.")
+            Return False
+        End Try
+    End Function
 End Class

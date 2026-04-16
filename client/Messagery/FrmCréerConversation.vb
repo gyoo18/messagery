@@ -63,4 +63,29 @@
         Me.contactsChoisisRetirés(id) = contactChoisi
         Me.conteneurContactsChoisis.Controls.Remove(contactChoisi.conteneur)
     End Sub
+
+    Private Async Sub BtnCréer_Click(sender As Object, e As EventArgs) Handles BtnCréer.Click
+        Try
+            If Me.contactsChoisis.Count = 0 Then
+                MessageBox.Show("Veuillez choisir au moins un contact.")
+                Return
+            End If
+
+            Dim idsContacts As New List(Of String)
+
+            For Each id As String In Me.contactsChoisis.Keys
+                idsContacts.Add(id)
+            Next
+
+            Dim ok As Boolean = Await Me.communication.creer_conversation(idsContacts)
+
+            If ok Then
+                MessageBox.Show("Conversation créée avec succès.")
+                Me.Close()
+            End If
+
+        Catch ex As Exception
+            MessageBox.Show("Erreur : " & ex.Message)
+        End Try
+    End Sub
 End Class
