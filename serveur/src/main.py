@@ -27,7 +27,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             "Encrypt=yes;"+
             "TrustServerCertificate=yes;"+
             "Authentication=SqlPassword;"+
-            "uid="+os.getenv("MSSQL_USER","sa")+";"+
+            "uid="+os.getenv("MSSQL_USER","messagery")+";"+
             "pwd="+os.getenv("MSSQL_PASSWORD","z2zAKZuE"))
         self.sql = self.sql_connection.cursor()
         super().__init__(*args,**kwargs)
@@ -159,6 +159,17 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             "INSERT INTO Utilisateurs (utilisateur_id, nom_affichage, nom_id, mot_de_passe)" +
             "VALUES (?,?,?,?)",
             (uid,infos["nom_affichage"].lower(),infos["nom_id"],infos["mot_de_passe"]))
+
+        self.sql.execute("SELECT MAX(contact_id) FROM Contacts")
+        cid = self.sql.fetchall()[0][0]
+        if cid is None:
+            cid = 0
+        cid += 1
+
+        self.sql.execute(
+            "INSERT INTO Contacts (contact_id, nom_affichage, nom_id, est_local, utilisateur_id)" +
+            "VALUES (?,?,?,?, ?)",
+            (cid,infos["nom_affichage"].lower(),infos["nom_id"],1,uid))
         self.sql_connection.commit()
 
         return {"accepté":True}
@@ -510,19 +521,34 @@ class ServeurHTTP(BaseHTTPRequestHandler):
         if len(contacts) == 0:
             print("Aucun contact valide")
             return {"accepté":False}
+        contacts.append(self.session[0] + "@" + self.headers.get("Host"))
+
+        contacts_ids : list[int] = []
+        for c in contacts:
+            contact_nom, contact_serveur = c.split("@")
+            self.sql.execute(
+                "SELECT contact_id "+
+                "FROM Contacts AS c "+
+                "LEFT JOIN ServeursAutorisés AS s ON c.serveur_id=s.serveur_id "+
+                "WHERE c.nom_id=? AND ( s.url=? OR c.est_local=1 )",
+                (contact_nom,contact_serveur))
+            res = self.sql.fetchall()
+            if len(res) == 0:
+                continue
+            contacts_ids.append(res[0][0])
 
         conversation_id = round(time())
 
         # Vérifier si une conversation avec ces contacts existe déjà
         self.sql.execute(
-           ("WITH D(contact_id) AS (VALUES ?) "+
+           ("WITH D AS ( SELECT * FROM (VALUES %s) AS A(contact_id) ) "+
             "SELECT cc.conversation_id "+
             "FROM ConversationsContacts AS cc "+
             "LEFT JOIN D ON cc.contact_id=D.contact_id "+
             "WHERE D.contact_id IS NOT NULL "+
             "GROUP BY cc.conversation_id "+
-            "HAVING COUNT(cc.contact_id)=(SELECT COUNT(*) FROM D)") % ','.join(["ROW(?)"]*len(contacts)),
-            tuple(contacts)
+            "HAVING COUNT(cc.contact_id)=(SELECT COUNT(*) FROM D)") % ','.join(["(?)"]*len(contacts_ids)),
+            tuple(contacts_ids)
         )
         if len(self.sql.fetchall()) != 0:
             print("La conversation existe déjà.")
@@ -737,11 +763,11 @@ class ServeurHTTP(BaseHTTPRequestHandler):
         
         # Obtenir la liste des contacts figurant d'utilisateurs
         self.sql.execute(
-           ("WITH D(contact_id) AS (VALUES ?) "+
+           ("WITH D AS ( SELECT * FROM (VALUES %s) AS A(contact_id) ) "+
             "SELECT c.utilisateur_id, c.contact_id "+
             "FROM Contacts AS c "+
             "INNER JOIN D ON c.contact_id=D.contact_id "+
-            "WHERE c.est_local=1") % ','.join(['ROW(?)']*len(contacts_ids)),
+            "WHERE c.est_local=1") % ','.join(['(?)']*len(contacts_ids)),
             tuple(contacts_ids.values())
         )
         utilisateurs_sql : list[tuple[int]] = self.sql.fetchall()
