@@ -2,7 +2,7 @@ import os
 import json
 import re
 import requests
-import mysql.connector
+import mssql_python
 from time import time
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from base64 import b64encode, b64decode
@@ -21,12 +21,14 @@ class ServeurHTTP(BaseHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         self.session_jeton : str = ""
         self.session : tuple[str,str,int] = () # (nom_id,mdp,date_connection_unix)
-        self.sql_connection = mysql.connector.connect(
-                host="localhost",
-                user=os.getenv("MYSQL_USER","messagery"),
-                password=os.getenv("MYSQL_PASSWORD","z2zAKZuE"),
-                database=os.getenv("MYSQL_DATABASE","messagery")
-            )
+        self.sql_connection = mssql_python.connect(
+            "Server="+os.getenv("MSSQL_HOST","localhost")+";"+
+            "Database="+os.getenv("MSSQL_DATABASE","messagery")+";"+
+            "Encrypt=yes;"+
+            "TrustServerCertificate=yes;"+
+            "Authentication=SqlPassword;"+
+            "uid="+os.getenv("MSSQL_USER","sa")+";"+
+            "pwd="+os.getenv("MSSQL_PASSWORD","z2zAKZuE"))
         self.sql = self.sql_connection.cursor()
         super().__init__(*args,**kwargs)
         self.sql_connection.close()
@@ -142,7 +144,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             return None
 
         # Vérifier si qqun existe déjà
-        self.sql.execute("SELECT 1 FROM Utilisateurs WHERE nom_id=%s",(infos["nom_id"],))
+        self.sql.execute("SELECT 1 FROM Utilisateurs WHERE nom_id=?",(infos["nom_id"],))
         if len(self.sql.fetchall()) != 0:
             self.send_error(400,"Un utilisateur possède déjà cet identifiant.")
             return None
@@ -155,7 +157,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
         
         self.sql.execute(
             "INSERT INTO Utilisateurs (utilisateur_id, nom_affichage, nom_id, mot_de_passe)" +
-            "VALUES (%s,%s,%s,%s)",
+            "VALUES (?,?,?,?)",
             (uid,infos["nom_affichage"].lower(),infos["nom_id"],infos["mot_de_passe"]))
         self.sql_connection.commit()
 
@@ -196,7 +198,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
         self.sql.execute(
             "SELECT utilisateur_id, date_connection, date_dernière_interaction "+
             "FROM Utilisateurs "+
-            "WHERE nom_id=%s AND mot_de_passe=%s",
+            "WHERE nom_id=? AND mot_de_passe=?",
             (identifiants[0],identifiants[1])
         )
 
@@ -212,8 +214,8 @@ class ServeurHTTP(BaseHTTPRequestHandler):
         # Modifier l'information de connection dans la base de donnée
         self.sql.execute(
             "UPDATE Utilisateurs "+
-            "SET date_connection=%s, date_dernière_interaction=%s "+
-            "WHERE utilisateur_id=%s",
+            "SET date_connection=?, date_dernière_interaction=? "+
+            "WHERE utilisateur_id=?",
             (datetime.now(),datetime.now(),résultat[0][0])
         )
 
@@ -235,7 +237,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
         self.sql.execute(
             "UPDATE Utilisateurs "+
             "SET date_connection=NULL, date_dernière_interaction=NULL "+
-            "WHERE nom_id=%s AND mot_de_passe=%s",
+            "WHERE nom_id=? AND mot_de_passe=?",
             (self.session[0],self.session[1])
         )
         self.sql_connection.commit()
@@ -265,7 +267,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             "SELECT c.conversation_id FROM Conversations AS c "+
             "INNER JOIN ConversationsContacts AS cc ON c.conversation_id=cc.conversation_id "+
             "INNER JOIN Contacts AS c2 ON c2.contact_id=cc.contact_id "+
-            "WHERE c2.nom_id=%s AND c2.est_local=True",
+            "WHERE c2.nom_id=? AND c2.est_local=1",
             (self.session[0],)
         )
         conversations_ids = self.sql.fetchall()
@@ -278,7 +280,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
                 "FROM Contacts AS ct "+
                 "LEFT JOIN ServeursAutorisés AS s ON ct.serveur_id=s.serveur_id "+
                 "INNER JOIN ConversationsContacts AS cc ON ct.contact_id=cc.contact_id "+
-                "WHERE cc.conversation_id=%s",
+                "WHERE cc.conversation_id=?",
                 (id[0],)
             )
             cv_contacts_sql : list[tuple[str,str,bool]] = self.sql.fetchall()
@@ -292,7 +294,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
                 "FROM Contacts AS c "+
                 "LEFT JOIN ServeursAutorisés AS s ON c.serveur_id=s.serveur_id "+
                 "INNER JOIN Messages AS m ON c.contact_id=m.contact_id "+
-                "WHERE m.conversation_id=%s "+
+                "WHERE m.conversation_id=? "+
                 "ORDER BY m.date ASC",
                 (id[0],)
             )
@@ -318,7 +320,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             "FROM Messages AS m "+
             "INNER JOIN MessagesNonLus AS mnl ON m.message_id=mnl.message_id "+
             "INNER JOIN Utilisateurs AS u ON u.utilisateur_id=mnl.message_id "+
-            "WHERE u.nom_id=%s",
+            "WHERE u.nom_id=?",
             (self.session[0],)
         )
         conversations_non_lues_sql : list[tuple[int]] = self.sql.fetchall()
@@ -367,8 +369,8 @@ class ServeurHTTP(BaseHTTPRequestHandler):
                 "DELETE mnl FROM MessagesNonLus AS mnl "+
                 "INNER JOIN Messages AS m ON m.message_id=mnl.message_id "+
                 "INNER JOIN Utilisateurs AS u ON mnl.utilisateur_id=u.utilisateur_id "+
-                ("WHERE m.conversation_id IN (%s) " % ','.join(['%s']*len(modifications["conversations-lues"])))+ 
-                "AND u.nom_id=%s",
+                ("WHERE m.conversation_id IN (?) " % ','.join(['?']*len(modifications["conversations-lues"])))+ 
+                "AND u.nom_id=?",
                 tuple(params)
             )
         
@@ -380,21 +382,21 @@ class ServeurHTTP(BaseHTTPRequestHandler):
                 self.sql.execute(
                     "DELETE cc FROM ConversationsContacts AS cc "+
                     "INNER JOIN Utilisateurs AS u ON cc.utilisateur_id=u.utilisateur_id "+
-                    "WHERE u.nom_id=%s",
+                    "WHERE u.nom_id=?",
                     (self.session[0],)
                 )
                 # Effacer les conversations non lues
                 self.sql.execute(
                     "DELETE cnl FROM ConversationsNonLues AS cnl "+
                     "INNER JOIN Utilisateurs AS u ON cnl.utilisateur_id=u.utilisateur_id "+
-                    "WHERE cnl.conversation_id=%s AND u.nom_id=%s",
+                    "WHERE cnl.conversation_id=? AND u.nom_id=?",
                     (cid,self.session[0])
                 )
                 # Effacer les invitations
                 self.sql.execute(
                     "DELETE i FROM Invitations AS i "+
                     "INNER JOIN Utilisateurs AS u ON i.utilisateur_id=u.utilisateur_id "+
-                    "WHERE i.conversation_id=%s AND u.utilisateur_id=%s",
+                    "WHERE i.conversation_id=? AND u.utilisateur_id=?",
                     (cid[0],self.session[0])
                 )
 
@@ -410,7 +412,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
                     self.sql.execute(
                         "DELETE c, m FROM Conversations AS c "+
                         "INNER JOIN Messages AS m ON c.conversation_id=m.conversation_id "+
-                        "WHERE c.conversation_id=%s",
+                        "WHERE c.conversation_id=?",
                         (cid,)
                 )
 
@@ -419,7 +421,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             "SELECT i.conversation_id "+
             "FROM Invitations AS i "+
             "INNER JOIN Utilisateurs AS u ON u.utilisateur_id=i.utilisateur_id "+
-            "WHERE u.nom_id=%s",
+            "WHERE u.nom_id=?",
             (self.session[0],)
         )
         nouvelles_conversations_sql : list[tuple[int]] = self.sql.fetchall()
@@ -430,7 +432,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
         self.sql.execute(
             "DELETE i FROM Invitations AS i "+
             "INNER JOIN Utilisateurs AS u ON i.utilisateur_id=u.utilisateur_id "+
-            "WHERE u.nom_id=%s",
+            "WHERE u.nom_id=?",
             (self.session[0],)
         )
 
@@ -442,7 +444,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             "INNER JOIN Messages AS m ON mnl.message_id=m.message_id "+
             "INNER JOIN Contacts AS c ON m.contact_id=c.contact_id "+
             "LEFT JOIN ServeursAutorisés AS s on c.serveur_id=s.serveur_id "+
-            "WHERE u.nom_id=%s",
+            "WHERE u.nom_id=?",
             (self.session[0],)
         )
         messages_non_lus_sql : list[tuple[int,str,str,bool,datetime,str]] = self.sql.fetchall()
@@ -458,7 +460,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
         self.sql.execute(
             "DELETE mnl FROM MessagesNonLus AS mnl "+
             "INNER JOIN Utilisateurs AS u ON mnl.utilisateur_id=u.utilisateur_id "+
-            "WHERE u.nom_id=%s",
+            "WHERE u.nom_id=?",
             (self.session[0],)
         )
 
@@ -513,13 +515,13 @@ class ServeurHTTP(BaseHTTPRequestHandler):
 
         # Vérifier si une conversation avec ces contacts existe déjà
         self.sql.execute(
-           ("WITH D(contact_id) AS (VALUES %s) "+
+           ("WITH D(contact_id) AS (VALUES ?) "+
             "SELECT cc.conversation_id "+
             "FROM ConversationsContacts AS cc "+
             "LEFT JOIN D ON cc.contact_id=D.contact_id "+
             "WHERE D.contact_id IS NOT NULL "+
             "GROUP BY cc.conversation_id "+
-            "HAVING COUNT(cc.contact_id)=(SELECT COUNT(*) FROM D)") % ','.join(["ROW(%s)"]*len(contacts)),
+            "HAVING COUNT(cc.contact_id)=(SELECT COUNT(*) FROM D)") % ','.join(["ROW(?)"]*len(contacts)),
             tuple(contacts)
         )
         if len(self.sql.fetchall()) != 0:
@@ -528,20 +530,20 @@ class ServeurHTTP(BaseHTTPRequestHandler):
 
         # Mettre à jour la base de données
         self.sql.execute(
-            "INSERT INTO Conversations VALUES (%s)",
+            "INSERT INTO Conversations VALUES (?)",
             (conversation_id,)
         )
         self.sql.execute(
             "SELECT c.contact_id "+
             "FROM Contacts AS c "+
             "INNER JOIN Utilisateurs AS u ON c.utilisateur_id=u.utilisateur_id "+
-            "WHERE u.nom_id=%s",
+            "WHERE u.nom_id=?",
             (self.session[0],)
         )
         contact_id = self.sql.fetchall()[0][0]
         self.sql.execute(
             "INSERT INTO ConversationsContacts (contact_id, conversation_id) "+
-            "VALUES (%s,%s)",
+            "VALUES (?,?)",
             (contact_id,conversation_id)
         )
 
@@ -610,7 +612,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
         contacts : list[str] = infos["contacts"]
 
         self.sql.execute(
-            "SELECT * FROM Conversations WHERE conversation_id=%s",
+            "SELECT * FROM Conversations WHERE conversation_id=?",
             (conversation_id,)
         )
         if len(self.sql.fetchall()) == 0:
@@ -632,7 +634,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             "SELECT c.nom_id, c.serveur_id, c.est_local "+
             "FROM Contacts AS c "+
             "INNER JOIN ConversationsContacts AS cc ON c.contact_id=cc.contact_id "+
-            "WHERE cc.conversation_id=%s",
+            "WHERE cc.conversation_id=?",
             (conversation_id,)
         )
         contacts_existants_sql : list[tuple[str,str,bool]] = self.sql.fetchall()
@@ -724,7 +726,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             self.sql.execute(
                 "SELECT contact_id FROM Contacts AS c "+
                 "LEFT JOIN ServeursAutorisés AS s ON c.serveur_id=s.serveur_id "
-                "WHERE c.nom_id=%s AND "+("c.est_local=1" if est_local else "s.url=%s"),
+                "WHERE c.nom_id=? AND "+("c.est_local=1" if est_local else "s.url=?"),
                 ((nom_id,) if est_local else (nom_id,serveur))
             )
             res = self.sql.fetchall()
@@ -735,11 +737,11 @@ class ServeurHTTP(BaseHTTPRequestHandler):
         
         # Obtenir la liste des contacts figurant d'utilisateurs
         self.sql.execute(
-           ("WITH D(contact_id) AS (VALUES %s) "+
+           ("WITH D(contact_id) AS (VALUES ?) "+
             "SELECT c.utilisateur_id, c.contact_id "+
             "FROM Contacts AS c "+
             "INNER JOIN D ON c.contact_id=D.contact_id "+
-            "WHERE c.est_local=True") % ','.join(['ROW(%s)']*len(contacts_ids)),
+            "WHERE c.est_local=1") % ','.join(['ROW(?)']*len(contacts_ids)),
             tuple(contacts_ids.values())
         )
         utilisateurs_sql : list[tuple[int]] = self.sql.fetchall()
@@ -751,7 +753,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
 
         # Créer la conversation si elle n'existe pas encore
         self.sql.execute(
-            "SELECT 1 FROM Conversations WHERE conversation_id=%s",
+            "SELECT 1 FROM Conversations WHERE conversation_id=?",
             (conversation,)
         )
         res = self.sql.fetchall()
@@ -761,7 +763,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             return {"accepté":False}
         elif len(res) == 0:
             self.sql.execute(
-                "INSERT INTO Conversations VALUES (%s)",
+                "INSERT INTO Conversations VALUES (?)",
                 (conversation,)
             )
 
@@ -771,7 +773,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             if message_id is None:
                 message_id = 0
             message_id += 1
-            requête = "INSERT INTO Messages (date, message) VALUES " + ','.join(["(%s,%s,%s,%s,%s)"]*len(messages))
+            requête = "INSERT INTO Messages (date, message) VALUES " + ','.join(["(?,?,?,?,?)"]*len(messages))
 
             # Assembler les paramètres
             requête_params = []
@@ -792,7 +794,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             
             # Obtenir la liste des contacts déjà présents dans la discussion
             self.sql.execute(
-                "SELECT contact_id FROM ConversationsContacts WHERE conversation_id=%s",
+                "SELECT contact_id FROM ConversationsContacts WHERE conversation_id=?",
                 (conversation,)
             )
             contacts_présents_sql : list[tuple[int]] = self.sql.fetchall()
@@ -812,11 +814,11 @@ class ServeurHTTP(BaseHTTPRequestHandler):
                 requête_params.append(conversation)
             
             if len(contacts_à_ajouter) != 0:
-                requête += ','.join(["(%s,%s)"]*len(contacts_à_ajouter))
+                requête += ','.join(["(?,?)"]*len(contacts_à_ajouter))
                 self.sql.execute(requête,tuple(requête_params))
         
         # Ajouter les invitations et les contacts à la conversation
-        requête = "INSERT INTO Invitations (conversation_id, utilisateur_id) VALUES " + ','.join(["(%s,%s)"]*len(utilisateurs))
+        requête = "INSERT INTO Invitations (conversation_id, utilisateur_id) VALUES " + ','.join(["(?,?)"]*len(utilisateurs))
         params : list[int] = []
         for u in utilisateurs:
             params.append(conversation)
@@ -857,7 +859,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
 
         # Vérifier que la conversation existe
         self.sql.execute(
-            "SELECT 1 FROM Conversations WHERE conversation_id=%s",
+            "SELECT 1 FROM Conversations WHERE conversation_id=?",
             (conversation,)
         )
         if len(self.sql.fetchall()) == 0:
@@ -876,14 +878,14 @@ class ServeurHTTP(BaseHTTPRequestHandler):
         self.sql.execute(
             "SELECT contact_id "+
             "FROM Contacts AS c "+
-            "WHERE nom_id=%s AND est_local=True",
+            "WHERE nom_id=? AND est_local=1",
             (self.session[0],)
         )
         contact_id : int = self.sql.fetchall()[0][0]
 
         self.sql.execute(
             "INSERT INTO Messages (message_id, conversation_id, contact_id, date, message) "+
-            "VALUES (%s,%s,%s,%s,%s)",
+            "VALUES (?,?,?,?,?)",
             (message_id,conversation,contact_id,date,message)
         )
         
@@ -893,7 +895,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             "FROM Contacts AS c "+
             "INNER JOIN ConversationsContacts AS cc ON c.contact_id=cc.contact_id "+
             "LEFT JOIN ServeursAutorisés AS s ON s.serveur_id=c.serveur_id "+
-            "WHERE cc.conversation_id=%s",
+            "WHERE cc.conversation_id=?",
             (conversation,)
         )
         contacts_sql : list[tuple[str,str,bool]] = self.sql.fetchall()
@@ -907,7 +909,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             "FROM Utilisateurs AS u "+
             "INNER JOIN Contacts AS c ON u.utilisateur_id=c.utilisateur_id "+
             "INNER JOIN ConversationsContacts AS cc ON c.contact_id=cc.contact_id "+
-            "WHERE cc.conversation_id=%s AND u.nom_id!=%s",
+            "WHERE cc.conversation_id=? AND u.nom_id!=?",
             (conversation,self.session[0])
         )
         utilisateurs_sql : list[tuple[int]] = self.sql.fetchall()
@@ -916,7 +918,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             utilisateurs.append(u[0])
 
         if len(utilisateurs) != 0:
-            requête = "INSERT INTO MessagesNonLus (utilisateur_id, message_id) VALUES " + ','.join(["(%s,%s)"*len(utilisateurs)])
+            requête = "INSERT INTO MessagesNonLus (utilisateur_id, message_id) VALUES " + ','.join(["(?,?)"*len(utilisateurs)])
             params : list = []
             for u in utilisateurs:
                 params.append(u)
@@ -982,7 +984,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
 
         # Vérifier que la conversation existe
         self.sql.execute(
-            "SELECT 1 FROM Conversation WHERE conversation_id=%s",
+            "SELECT 1 FROM Conversation WHERE conversation_id=?",
             (conversation,)
         )
         if len(self.sql.fetchall()) == 0:
@@ -999,7 +1001,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             "SELECT c.contact_id "+
             "FROM Contacts AS c "+
             "LEFT JOIN ServeursAutorisés AS s ON c.serveur_id=s.serveur_id "+
-            "WHERE c.nom_id=%s AND s.url=%s",
+            "WHERE c.nom_id=? AND s.url=?",
             (contact_nom,contact_serveur)
         )
         contact_id_sql : list[tuple[str,str]] = self.sql.fetchall()
@@ -1018,7 +1020,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
         # Insérer le nouveau message
         self.sql.execute(
             "INSERT INTO Messages (date, message) "+
-            "VALUES (%s,%s,%s,%s,%s)",
+            "VALUES (?,?,?,?,?)",
             (message_id, conversation, contact_id, date, message, contact_id, date, message)
         )
 
@@ -1029,14 +1031,14 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             "SELECT c.utilisateur_id "+
             "FROM Conversations AS c "+
             "INNER JOIN ConversationsContacts AS cc ON c.contact_id=cc.contact_id "+
-            "WHERE cc.conversation_id=%s"
+            "WHERE cc.conversation_id=?"
         )
         utilisateurs_sql : list[tuple[int]] = self.sql.fetchall()
         utilisateurs : list[int] = []
         for u in utilisateurs_sql:
             utilisateurs.append(u[0])
 
-        requête = "INSERT INTO MessagesNonLus (message_id, utilisateur_id) VALUES " + ','.join(["(%s,%s)"]*len(utilisateurs))
+        requête = "INSERT INTO MessagesNonLus (message_id, utilisateur_id) VALUES " + ','.join(["(?,?)"]*len(utilisateurs))
         params : list = []
         for u in utilisateurs:
             params.append(message_id)
@@ -1086,7 +1088,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
         self.sql.execute(
             "SELECT 1 "+
             "FROM Utilisateurs "+
-            "WHERE nom_id=%s AND mot_de_passe=%s AND date_connection<=DATE_ADD(NOW(), INTERVAL 3 SECOND) AND DATE_ADD(date_dernière_interaction, INTERVAL 3 HOUR) > NOW()",
+            "WHERE nom_id=? AND mot_de_passe=? AND date_connection<=DATEADD(second, 3, GETDATE()) AND DATEADD(hour, 3, date_dernière_interaction) > GETDATE()",
             (identifiants[0],identifiants[1])
         )
         if len(self.sql.fetchall()) == 0:
@@ -1129,7 +1131,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
         self.sql.execute(
             "SELECT url "+
             "FROM ServeursAutorisés "+
-            "WHERE nom_id=%s AND mot_de_passe=%s",
+            "WHERE nom_id=? AND mot_de_passe=?",
             (identifiants[0],identifiants[1])
         )
         res : list[tuple[str]] = self.sql.fetchall()
@@ -1180,7 +1182,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
         pour déconnecter après 3h d'innactivité
         """
         self.sql.execute(
-            "UPDATE Utilisateurs SET date_dernière_interaction=NOW() WHERE nom_id=%s",
+            "UPDATE Utilisateurs SET date_dernière_interaction=GETDATE() WHERE nom_id=?",
             (self.session[0],)
         )
         self.sql_connection.commit()
