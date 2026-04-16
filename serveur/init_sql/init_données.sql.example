@@ -1,9 +1,0 @@
-INSERT INTO Utilisateurs VALUES
-(1,"test1","test1","mdp_test1",NULL,NULL),
-(2,"test2","test2","mdp_test2",NULL,NULL),
-(3,"test3","test3","mdp_test3",NULL,NULL);
-
-INSERT INTO Contacts VALUES
-(1,"test1","test1",NULL,True,1),
-(2,"test2","test2",NULL,True,2),
-(3,"test3","test3",NULL,True,3);

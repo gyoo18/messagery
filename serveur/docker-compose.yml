@@ -15,24 +15,25 @@ services:
       - externe
 
   serveur:
-    image: python:alpine
+    build:
+      context: ./src
+      dockerfile: Dockerfile
     restart: unless-stopped
     env_file: .env
     volumes:
       - ./src:/src
-    command: ["python3","/src/main.py"]
     ports:
       - 8000:8000
     networks:
       - interne
   
   db:
-    image: mysql:latest
-    restart: unless-stopped
+    image: mcr.microsoft.com/mssql/server:latest
     env_file: .env
     volumes:
-      - db_donnees:/var/lib/mysql
+      - db_donnees:/var/opt/mssql
       - ./init_sql:/docker-entrypoint-initdb.d
+    entrypoint: /docker-entrypoint-initdb.d/entrypoint.sh
     networks:
       - interne
 

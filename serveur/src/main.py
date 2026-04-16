@@ -28,7 +28,7 @@ class ServeurHTTP(BaseHTTPRequestHandler):
             "TrustServerCertificate=yes;"+
             "Authentication=SqlPassword;"+
             "uid="+os.getenv("MSSQL_USER","messagery")+";"+
-            "pwd="+os.getenv("MSSQL_PASSWORD","z2zAKZuE"))
+            "pwd="+os.getenv("MSSQL_SA_PASSWORD","z2zAKZuE"))
         self.sql = self.sql_connection.cursor()
         super().__init__(*args,**kwargs)
         self.sql_connection.close()
