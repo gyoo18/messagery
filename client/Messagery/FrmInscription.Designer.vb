@@ -83,7 +83,7 @@ Partial Class FrmInscription
         txtMotDePasse.Margin = New Padding(2)
         txtMotDePasse.Name = "txtMotDePasse"
         txtMotDePasse.Size = New Size(172, 23)
-        txtMotDePasse.TabIndex = 4
+        txtMotDePasse.TabIndex = 6
         ' 
         ' txtConfirmation
         ' 
@@ -91,7 +91,7 @@ Partial Class FrmInscription
         txtConfirmation.Margin = New Padding(2)
         txtConfirmation.Name = "txtConfirmation"
         txtConfirmation.Size = New Size(172, 23)
-        txtConfirmation.TabIndex = 5
+        txtConfirmation.TabIndex = 7
         ' 
         ' btnEnregistrer
         ' 
@@ -102,7 +102,7 @@ Partial Class FrmInscription
         btnEnregistrer.Margin = New Padding(2)
         btnEnregistrer.Name = "btnEnregistrer"
         btnEnregistrer.Size = New Size(155, 45)
-        btnEnregistrer.TabIndex = 6
+        btnEnregistrer.TabIndex = 8
         btnEnregistrer.Text = "Enregistrer"
         btnEnregistrer.UseVisualStyleBackColor = False
         ' 
@@ -112,7 +112,7 @@ Partial Class FrmInscription
         btnRetour.Margin = New Padding(2)
         btnRetour.Name = "btnRetour"
         btnRetour.Size = New Size(158, 45)
-        btnRetour.TabIndex = 7
+        btnRetour.TabIndex = 9
         btnRetour.Text = "Retour"
         btnRetour.UseVisualStyleBackColor = True
         ' 
@@ -122,7 +122,7 @@ Partial Class FrmInscription
         txtNomAffichage.Margin = New Padding(2)
         txtNomAffichage.Name = "txtNomAffichage"
         txtNomAffichage.Size = New Size(172, 23)
-        txtNomAffichage.TabIndex = 9
+        txtNomAffichage.TabIndex = 4
         ' 
         ' Label1
         ' 
@@ -141,7 +141,7 @@ Partial Class FrmInscription
         txtServeur.Margin = New Padding(2)
         txtServeur.Name = "txtServeur"
         txtServeur.Size = New Size(172, 23)
-        txtServeur.TabIndex = 11
+        txtServeur.TabIndex = 5
         ' 
         ' Label2
         ' 

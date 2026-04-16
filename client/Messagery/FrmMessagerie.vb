@@ -125,6 +125,10 @@ Public Class FrmMessagerie
 
     Public Async Sub misÀJour() Handles BackgroundWorker1.DoWork
         Do While True
+            If État.session Is Nothing Then
+                Exit Do
+            End If
+
             Dim sync = Await Me.communication.synchronisation()
 
             For Each c In sync.nouvelles_conversations

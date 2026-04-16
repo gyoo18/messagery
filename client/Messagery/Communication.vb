@@ -162,7 +162,7 @@ Public Class Communication
 
                     messages.Add(New Message With {
                         .contact = contacts(JsonSerializer.Deserialize(Of String)(messages_str(j)("contact"))),
-                        .date_publication = JsonSerializer.Deserialize(Of DateTime)(messages_str(j)("date")),
+                        .date_publication = DateTime.Parse(JsonSerializer.Deserialize(Of String)(messages_str(j)("date"))),
                         .contenu = JsonSerializer.Deserialize(Of String)(messages_str(j)("message"))
                     })
                 Next j

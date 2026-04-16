@@ -72,6 +72,7 @@ Partial Class FrmMessagerie
         BoîtesConversationsConteneur.AutoScroll = True
         BoîtesConversationsConteneur.AutoScrollMargin = New Size(1, 1)
         BoîtesConversationsConteneur.AutoScrollMinSize = New Size(1, 1)
+        BoîtesConversationsConteneur.FlowDirection = FlowDirection.TopDown
         BoîtesConversationsConteneur.Location = New Point(6, 64)
         BoîtesConversationsConteneur.Name = "BoîtesConversationsConteneur"
         BoîtesConversationsConteneur.Size = New Size(236, 539)
@@ -182,7 +183,7 @@ Partial Class FrmMessagerie
         ' BackgroundWorker1
         ' 
         ' 
-        ' PrincipalFrm
+        ' FrmMessagerie
         ' 
         AutoScaleDimensions = New SizeF(7F, 15F)
         AutoScaleMode = AutoScaleMode.Font
@@ -191,7 +192,7 @@ Partial Class FrmMessagerie
         Controls.Add(FlowLayoutPanel2)
         Controls.Add(Panel1)
         Controls.Add(GroupBox1)
-        Name = "PrincipalFrm"
+        Name = "FrmMessagerie"
         Text = "Form1"
         GroupBox1.ResumeLayout(False)
         Panel1.ResumeLayout(False)
